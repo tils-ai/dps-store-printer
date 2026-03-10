@@ -22,6 +22,7 @@ ERROR_DIR = _ini.get("folder", "error", fallback="") or os.path.join(BASE_DIR, "
 PRINTER_NAME = _ini.get("printer", "name", fallback="SLK TS200")
 LABEL_WIDTH_MM = 72
 PRINTER_DPI = _ini.getint("printer", "dpi", fallback=203)
+RENDER_DPI = _ini.getint("printer", "render_dpi", fallback=300)
 LABEL_WIDTH_PX = int(LABEL_WIDTH_MM / 25.4 * PRINTER_DPI)  # ~576px
 
 # poppler 경로 (pdf2image에서 사용)

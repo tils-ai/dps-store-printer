@@ -8,7 +8,7 @@ from pdf2image import convert_from_path
 from PIL import Image
 
 import config
-from printer import print_images
+from printer import print_image
 
 logger = logging.getLogger(__name__)
 
@@ -22,21 +22,22 @@ def resize_image(image: Image.Image) -> Image.Image:
     return image.resize((target_width, target_height), Image.LANCZOS)
 
 
-def pdf_to_images(pdf_path: str) -> list[Image.Image]:
-    """PDF를 페이지별 이미지로 변환 후 리사이즈."""
-    kwargs = {"dpi": config.PRINTER_DPI}
+def pdf_to_images(pdf_path: str):
+    """PDF를 페이지별 이미지로 변환 후 리사이즈. 한 페이지씩 yield."""
+    kwargs = {"dpi": config.RENDER_DPI}
     if config.POPPLER_PATH:
         kwargs["poppler_path"] = config.POPPLER_PATH
 
-    pages = convert_from_path(pdf_path, **kwargs)
-    return [resize_image(page) for page in pages]
+    for page in convert_from_path(pdf_path, **kwargs):
+        yield resize_image(page)
 
 
 def process_pdf(pdf_path: str):
-    """PDF 파일을 이미지로 변환하여 출력."""
+    """PDF 파일을 이미지로 변환하여 한 페이지씩 출력."""
     logger.info("PDF 처리: %s", pdf_path)
-    images = pdf_to_images(pdf_path)
-    print_images(images)
+    for i, image in enumerate(pdf_to_images(pdf_path), 1):
+        logger.info("페이지 %d 출력 중...", i)
+        print_image(image)
 
 
 def process_zip(zip_path: str):

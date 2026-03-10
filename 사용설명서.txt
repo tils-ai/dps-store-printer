@@ -33,6 +33,7 @@
   [printer]
   name = SLK TS200
   dpi = 203
+  render_dpi = 300
 
   [folder]
   watch =
@@ -42,9 +43,10 @@
   ─────────────────────────────
 
   [printer]
-  - name : Windows에 등록된 프린터 이름 (정확히 일치해야 함)
-           확인 방법: 설정 > 블루투스 및 장치 > 프린터 및 스캐너
-  - dpi  : 프린터 해상도 (SLK TS200 기본값: 203)
+  - name       : Windows에 등록된 프린터 이름 (정확히 일치해야 함)
+                 확인 방법: 설정 > 블루투스 및 장치 > 프린터 및 스캐너
+  - dpi        : 프린터 해상도 (SLK TS200 기본값: 203)
+  - render_dpi : PDF 렌더링 해상도 (높을수록 선명, 기본값: 300)
 
   [folder]
   - watch : 감시 폴더 경로 (비워두면 exe 폴더 내 watch/)
