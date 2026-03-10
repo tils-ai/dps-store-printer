@@ -41,7 +41,16 @@ jobs:
         run: |
           pyinstaller --onefile --name label-printer-watcher --console --hidden-import win32print --hidden-import win32ui --hidden-import win32api --add-data "${{ steps.poppler.outputs.bin }};poppler" main.py
 
-      - name: Upload EXE to Release
+      - name: Prepare release files
+        run: |
+          copy config.ini dist\config.ini
+          copy 사용설명서.txt dist\사용설명서.txt
+        shell: cmd
+
+      - name: Upload to Release
         uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.3.2
         with:
-          files: dist/label-printer-watcher.exe
+          files: |
+            dist/label-printer-watcher.exe
+            dist/config.ini
+            dist/사용설명서.txt
