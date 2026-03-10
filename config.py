@@ -25,7 +25,19 @@ PRINTER_DPI = _ini.getint("printer", "dpi", fallback=203)
 LABEL_WIDTH_PX = int(LABEL_WIDTH_MM / 25.4 * PRINTER_DPI)  # ~576px
 
 # poppler 경로 (pdf2image에서 사용)
-POPPLER_PATH = _ini.get("poppler", "path", fallback=None)
+# 우선순위: config.ini > exe 번들 > PATH
+def _poppler_path():
+    ini_path = _ini.get("poppler", "path", fallback="")
+    if ini_path:
+        return ini_path
+    # PyInstaller 번들 내 poppler 확인
+    if getattr(sys, "frozen", False):
+        bundled = os.path.join(sys._MEIPASS, "poppler")
+        if os.path.isdir(bundled):
+            return bundled
+    return None
+
+POPPLER_PATH = _poppler_path()
 
 # 파일 쓰기 완료 대기 설정
 FILE_STABLE_CHECK_INTERVAL = 1.0  # 초

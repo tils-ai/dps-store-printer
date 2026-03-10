@@ -24,13 +24,21 @@ jobs:
         run: |
           choco install poppler -y
 
+      - name: Find poppler path
+        id: poppler
+        run: |
+          $popplerBin = (Get-ChildItem -Path "C:\ProgramData\chocolatey\lib\poppler\tools" -Recurse -Filter "pdftoppm.exe" | Select-Object -First 1).DirectoryName
+          echo "bin=$popplerBin" >> $env:GITHUB_OUTPUT
+          echo "Poppler bin: $popplerBin"
+        shell: pwsh
+
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
 
       - name: Build EXE
         run: |
-          pyinstaller --onefile --name label-printer-watcher --console --hidden-import win32print --hidden-import win32ui --hidden-import win32api main.py
+          pyinstaller --onefile --name label-printer-watcher --console --hidden-import win32print --hidden-import win32ui --hidden-import win32api --add-data "${{ steps.poppler.outputs.bin }};poppler" main.py
 
       - name: Upload EXE to Release
         uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.3.2
