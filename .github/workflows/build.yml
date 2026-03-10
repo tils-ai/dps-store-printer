@@ -24,14 +24,20 @@ jobs:
         id: poppler
         run: |
           choco install poppler -y
-          $popplerBin = (Get-ChildItem -Path "C:\ProgramData\chocolatey\lib\poppler\tools" -Recurse -Filter "pdftoppm.exe" -ErrorAction Stop | Select-Object -First 1).DirectoryName
+          echo "=== poppler directory structure ==="
+          Get-ChildItem -Path "C:\ProgramData\chocolatey\lib\poppler\tools" -Recurse | Select-Object FullName
+          echo "=== searching for exe files ==="
+          Get-ChildItem -Path "C:\ProgramData\chocolatey\lib\poppler\tools" -Recurse -Filter "*.exe" | Select-Object FullName
+          $popplerBin = (Get-ChildItem -Path "C:\ProgramData\chocolatey\lib\poppler\tools" -Recurse -Filter "pdftoppm.exe" | Select-Object -First 1).DirectoryName
           if (-not $popplerBin) {
-            Write-Error "pdftoppm.exe not found"
+            $popplerBin = (Get-ChildItem -Path "C:\ProgramData\chocolatey\lib\poppler\tools" -Recurse -Directory -Filter "bin" | Select-Object -First 1).FullName
+          }
+          if (-not $popplerBin) {
+            Write-Error "poppler bin not found"
             exit 1
           }
           echo "bin=$popplerBin" >> $env:GITHUB_OUTPUT
           echo "Poppler bin: $popplerBin"
-          ls $popplerBin
         shell: pwsh
 
       - name: Install dependencies
