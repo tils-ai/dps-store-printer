@@ -23,13 +23,16 @@ jobs:
       - name: Install poppler
         run: |
           choco install poppler -y
+          where pdftoppm
+        shell: cmd
 
       - name: Find poppler path
         id: poppler
         run: |
-          $popplerBin = (Get-ChildItem -Path "C:\ProgramData\chocolatey\lib\poppler\tools" -Recurse -Filter "pdftoppm.exe" | Select-Object -First 1).DirectoryName
+          $popplerBin = (Get-Command pdftoppm -ErrorAction Stop).Source | Split-Path
           echo "bin=$popplerBin" >> $env:GITHUB_OUTPUT
           echo "Poppler bin: $popplerBin"
+          ls $popplerBin
         shell: pwsh
 
       - name: Install dependencies
