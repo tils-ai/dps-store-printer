@@ -21,15 +21,14 @@ jobs:
           python-version: '3.11'
 
       - name: Install poppler
-        run: |
-          choco install poppler -y
-          where pdftoppm
-        shell: cmd
-
-      - name: Find poppler path
         id: poppler
         run: |
-          $popplerBin = (Get-Command pdftoppm -ErrorAction Stop).Source | Split-Path
+          choco install poppler -y
+          $popplerBin = (Get-ChildItem -Path "C:\ProgramData\chocolatey\lib\poppler\tools" -Recurse -Filter "pdftoppm.exe" -ErrorAction Stop | Select-Object -First 1).DirectoryName
+          if (-not $popplerBin) {
+            Write-Error "pdftoppm.exe not found"
+            exit 1
+          }
           echo "bin=$popplerBin" >> $env:GITHUB_OUTPUT
           echo "Poppler bin: $popplerBin"
           ls $popplerBin
