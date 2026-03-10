@@ -23,21 +23,19 @@ jobs:
       - name: Install poppler
         id: poppler
         run: |
-          choco install poppler -y
-          echo "=== poppler directory structure ==="
-          Get-ChildItem -Path "C:\ProgramData\chocolatey\lib\poppler\tools" -Recurse | Select-Object FullName
-          echo "=== searching for exe files ==="
-          Get-ChildItem -Path "C:\ProgramData\chocolatey\lib\poppler\tools" -Recurse -Filter "*.exe" | Select-Object FullName
-          $popplerBin = (Get-ChildItem -Path "C:\ProgramData\chocolatey\lib\poppler\tools" -Recurse -Filter "pdftoppm.exe" | Select-Object -First 1).DirectoryName
+          $url = "https://github.com/osdn-mirror/poppler/releases/download/poppler-24.08.0-0/poppler-24.08.0_Library.zip"
+          Invoke-WebRequest -Uri $url -OutFile poppler.zip
+          Expand-Archive -Path poppler.zip -DestinationPath poppler-install
+          $popplerBin = (Get-ChildItem -Path poppler-install -Recurse -Filter "pdftoppm.exe" | Select-Object -First 1).DirectoryName
           if (-not $popplerBin) {
-            $popplerBin = (Get-ChildItem -Path "C:\ProgramData\chocolatey\lib\poppler\tools" -Recurse -Directory -Filter "bin" | Select-Object -First 1).FullName
-          }
-          if (-not $popplerBin) {
-            Write-Error "poppler bin not found"
+            echo "=== directory structure ==="
+            Get-ChildItem -Path poppler-install -Recurse | Select-Object FullName
+            Write-Error "pdftoppm.exe not found"
             exit 1
           }
           echo "bin=$popplerBin" >> $env:GITHUB_OUTPUT
           echo "Poppler bin: $popplerBin"
+          ls $popplerBin
         shell: pwsh
 
       - name: Install dependencies
