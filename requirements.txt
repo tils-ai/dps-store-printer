@@ -1,0 +1,5 @@
+watchdog
+pdf2image
+Pillow
+pywin32
+pyinstaller
