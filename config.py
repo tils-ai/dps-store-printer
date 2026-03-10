@@ -16,9 +16,9 @@ BASE_DIR = _base_dir()
 _ini = configparser.ConfigParser()
 _ini.read(os.path.join(BASE_DIR, "config.ini"), encoding="utf-8")
 
-WATCH_DIR = os.path.join(BASE_DIR, "watch")
-DONE_DIR = os.path.join(BASE_DIR, "done")
-ERROR_DIR = os.path.join(BASE_DIR, "error")
+WATCH_DIR = _ini.get("folder", "watch", fallback="") or os.path.join(BASE_DIR, "watch")
+DONE_DIR = _ini.get("folder", "done", fallback="") or os.path.join(BASE_DIR, "done")
+ERROR_DIR = _ini.get("folder", "error", fallback="") or os.path.join(BASE_DIR, "error")
 PRINTER_NAME = _ini.get("printer", "name", fallback="SLK TS200")
 LABEL_WIDTH_MM = 72
 PRINTER_DPI = _ini.getint("printer", "dpi", fallback=203)
