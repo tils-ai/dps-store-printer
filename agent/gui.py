@@ -137,22 +137,50 @@ class AgentApp(ctk.CTk):
         settings = [
             ("프린터", config.PRINTER_NAME),
             ("서버", config.BASE_URL),
-            ("테넌트", config.API_TENANT or "(미설정)"),
             ("인증", api_key_status),
             ("풀링 간격", f"{config.POLL_INTERVAL}초"),
         ]
-        for i, (label, value) in enumerate(settings):
+        row_idx = 0
+        for label, value in settings:
             ctk.CTkLabel(
                 info_frame, text=label,
                 font=(_FONT, 12), text_color=_TEXT_MUTED,
-            ).grid(row=i, column=0, padx=(12, 8), pady=2, sticky="w")
+            ).grid(row=row_idx, column=0, padx=(12, 8), pady=2, sticky="w")
             lbl = ctk.CTkLabel(
                 info_frame, text=str(value), anchor="w",
                 font=(_FONT, 12), text_color=_TEXT,
             )
-            lbl.grid(row=i, column=1, padx=(0, 12), pady=2, sticky="w")
+            lbl.grid(row=row_idx, column=1, padx=(0, 12), pady=2, sticky="w")
             if label == "인증":
                 self._auth_label = lbl
+            row_idx += 1
+
+        # 테넌트 입력 필드
+        ctk.CTkLabel(
+            info_frame, text="테넌트",
+            font=(_FONT, 12), text_color=_TEXT_MUTED,
+        ).grid(row=row_idx, column=0, padx=(12, 8), pady=2, sticky="w")
+
+        tenant_row = ctk.CTkFrame(info_frame, fg_color="transparent")
+        tenant_row.grid(row=row_idx, column=1, padx=(0, 12), pady=2, sticky="ew")
+        tenant_row.grid_columnconfigure(0, weight=1)
+
+        self._tenant_entry = ctk.CTkEntry(
+            tenant_row, font=(_FONT, 12),
+            fg_color=_LOG_BG, text_color=_TEXT, border_color=_GRAY,
+            height=28, corner_radius=4,
+        )
+        self._tenant_entry.grid(row=0, column=0, sticky="ew")
+        if config.API_TENANT:
+            self._tenant_entry.insert(0, config.API_TENANT)
+
+        self._tenant_save_btn = ctk.CTkButton(
+            tenant_row, text="저장", width=48,
+            font=(_FONT, 11), fg_color=_BLUE,
+            hover_color="#6B8EA8", corner_radius=4, height=28,
+            command=self._save_tenant,
+        )
+        self._tenant_save_btn.grid(row=0, column=1, padx=(4, 0))
 
         # --- 로그 ---
         log_label = ctk.CTkLabel(
@@ -196,11 +224,15 @@ class AgentApp(ctk.CTk):
             self._status_label.configure(text=text or "실행 중")
             self._start_btn.configure(state="disabled", fg_color=_GRAY)
             self._stop_btn.configure(state="normal", fg_color=_CORAL, hover_color="#C47A6B")
+            self._tenant_entry.configure(state="disabled")
+            self._tenant_save_btn.configure(state="disabled", fg_color=_GRAY)
         else:
             self._status_dot.configure(text_color=_GRAY)
             self._status_label.configure(text=text or "중지됨")
             self._start_btn.configure(state="normal", fg_color=_BLUE)
             self._stop_btn.configure(state="disabled", fg_color=_GRAY)
+            self._tenant_entry.configure(state="normal")
+            self._tenant_save_btn.configure(state="normal", fg_color=_BLUE)
 
     def _start(self):
         if self._running:
@@ -283,6 +315,17 @@ class AgentApp(ctk.CTk):
                 self._stop_event.wait(10)
 
         self.after(0, lambda: self._update_status(running=False))
+
+    def _save_tenant(self):
+        tenant = self._tenant_entry.get().strip()
+        if not tenant:
+            logger.warning("테넌트를 입력해주세요.")
+            return
+        config.save_tenant(tenant)
+        logger.info("테넌트 저장됨: %s", tenant)
+        # 실행 중이 아니면 자동 시작
+        if not self._running:
+            self._start()
 
     def _stop(self):
         if not self._running:
