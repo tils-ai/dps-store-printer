@@ -15,11 +15,11 @@ _FONT_PATHS = [
 
 _font_cache = {}
 
-# 색상 (감열 프린터: 흑백이지만 그레이 톤으로 가독성 구분)
+# 색상 (감열 프린터: 흑백만 지원, 회색은 출력 안됨)
 _BLACK = "#000000"
-_GRAY = "#888888"
-_LIGHT_GRAY = "#AAAAAA"
-_RULE_GRAY = "#CCCCCC"
+_GRAY = "#000000"
+_LIGHT_GRAY = "#000000"
+_RULE_GRAY = "#000000"
 
 
 def _load_font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
@@ -90,23 +90,23 @@ def _build_single(
     width_mm = receipt.get("receiptWidthMm", 72)
     width_px = int(width_mm / 25.4 * printer_dpi)
 
-    # DPI 비례 폰트 크기 (프론트엔드 13px 기준 매핑)
+    # DPI 비례 폰트 크기 (감열 프린터용 2배 크기)
     scale = printer_dpi / 203
-    font_brand = _load_font(int(20 * scale), bold=True)      # 브랜드명
-    font_body = _load_font(int(13 * scale))                   # 본문
-    font_medium = _load_font(int(13 * scale), bold=True)      # 중간 굵기
-    font_order_num = _load_font(int(16 * scale), bold=True)   # 주문번호
-    font_contact = _load_font(int(15 * scale), bold=True)     # 연락처
-    font_total = _load_font(int(15 * scale), bold=True)       # 총 결제금액
-    font_small = _load_font(int(11 * scale))                  # 작은 텍스트
-    font_item_detail = _load_font(int(12 * scale))            # 상품 옵션
+    font_brand = _load_font(int(40 * scale), bold=True)      # 브랜드명
+    font_body = _load_font(int(26 * scale))                   # 본문
+    font_medium = _load_font(int(26 * scale), bold=True)      # 중간 굵기
+    font_order_num = _load_font(int(32 * scale), bold=True)   # 주문번호
+    font_contact = _load_font(int(30 * scale), bold=True)     # 연락처
+    font_total = _load_font(int(30 * scale), bold=True)       # 총 결제금액
+    font_small = _load_font(int(22 * scale))                  # 작은 텍스트
+    font_item_detail = _load_font(int(24 * scale))            # 상품 옵션
 
-    margin = int(16 * scale)
-    line_gap = int(4 * scale)
-    section_pad = int(8 * scale)
+    margin = int(24 * scale)
+    line_gap = int(8 * scale)
+    section_pad = int(16 * scale)
 
     # 임시 캔버스
-    canvas_height = int(2000 * scale)
+    canvas_height = int(4000 * scale)
     img = Image.new("RGB", (width_px, canvas_height), "white")
     draw = ImageDraw.Draw(img)
 
@@ -250,7 +250,7 @@ def _build_single(
     # === 예상 소요시간 (수기 기입란) ===
     draw.text((margin, y), "예상 소요시간", fill=_GRAY, font=font_small)
     y += text_height("예상 소요시간", font_small) + int(6 * scale)
-    line_y = y + int(28 * scale)
+    line_y = y + int(48 * scale)
     draw_thin_line(line_y)
     y = line_y + section_pad
 
