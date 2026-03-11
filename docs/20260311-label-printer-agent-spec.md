@@ -37,8 +37,8 @@ Device Auth: 인증 요청 → 브라우저 승인 → API 키 발급 → config
 풀링 루프 시작
   ↓
 GET /api/printer/receipts (Authorization: Bearer pk_...)
-  ├─ 빈 응답 → 대기 (adaptive 백오프: 5초→30초)
-  └─ receipts 있음 → 간격 5초로 복원
+  ├─ 빈 응답 → 대기 (서버 pollInterval 우선, 없으면 adaptive 백오프)
+  └─ receipts 있음 → 간격 복원
        ↓
      접수증 JSON → Pillow로 이미지 생성
        ├─ dualCopy: true → "매장용"/"고객용" 2장 생성
@@ -139,8 +139,11 @@ class PrinterApiClient:
         self.session.headers["X-Client-Version"] = VERSION
         self.base_url = base_url
 
-    def get_pending_receipts(self, limit: int = 10) -> list[dict]:
-        """미출력 접수증 조회. 서버가 PENDING→PRINTING으로 선점."""
+    def get_pending_receipts(self, limit: int = 10) -> tuple[list[dict], int | None]:
+        """미출력 접수증 조회. 서버가 PENDING→PRINTING으로 선점.
+        Returns: (receipts, pollInterval)
+          - pollInterval: 서버가 지정한 다음 풀링 간격(초). 없으면 None.
+        """
         resp = self.session.get(
             f"{self.base_url}/api/printer/receipts",
             params={"status": "pending", "limit": limit},
@@ -150,7 +153,8 @@ class PrinterApiClient:
         if resp.status_code == 401:
             raise AuthExpiredError("API 키가 만료되었습니다.")
         resp.raise_for_status()
-        return resp.json()["receipts"]
+        data = resp.json()
+        return data["receipts"], data.get("pollInterval")
 
     def mark_printed(self, receipt_id: str):
         """출력 완료 보고."""
@@ -300,11 +304,12 @@ def start_polling(client: PrinterApiClient):
 
     while True:
         try:
-            receipts = client.get_pending_receipts()
+            receipts, server_interval = client.get_pending_receipts()
 
             if not receipts:
                 empty_count += 1
-                interval = _backoff_interval(empty_count)
+                # 서버 지정 간격 우선, 없으면 클라이언트 백오프
+                interval = server_interval or _backoff_interval(empty_count)
                 time.sleep(interval)
                 continue
 
@@ -313,7 +318,8 @@ def start_polling(client: PrinterApiClient):
             for receipt in receipts:
                 process_receipt(client, receipt)
 
-            time.sleep(config.POLL_INTERVAL)
+            interval = server_interval or config.POLL_INTERVAL
+            time.sleep(interval)
 
         except AuthExpiredError:
             logger.error("API 키가 만료되었습니다. 프로그램을 다시 실행하여 재인증하세요.")
@@ -353,11 +359,14 @@ def process_receipt(client: PrinterApiClient, receipt: dict):
             logger.exception("실패 보고 오류")
 ```
 
-**백오프 간격:**
+**풀링 간격 우선순위:**
+
+1. **서버 응답의 `pollInterval`** — 서버가 지정하면 무조건 따름
+2. **클라이언트 adaptive 백오프** — 서버 미지정 시 빈 응답 횟수에 따라 증가
 
 ```python
 def _backoff_interval(empty_count: int) -> float:
-    """빈 응답 연속 횟수에 따른 풀링 간격."""
+    """빈 응답 연속 횟수에 따른 풀링 간격 (서버 미지정 시 폴백)."""
     if empty_count < 3:
         return config.POLL_INTERVAL      # 5초
     if empty_count < 6:
@@ -366,6 +375,8 @@ def _backoff_interval(empty_count: int) -> float:
         return 20
     return 30  # 최대 30초
 ```
+
+서버에서 `pollInterval: 5`를 항상 내려주면 백오프 없이 고정 5초 간격으로 동작한다.
 
 ## config.ini 전체
 
@@ -458,6 +469,21 @@ label-printer-agent.exe
 - [ ] `build.bat` — PyInstaller 빌드 스크립트
 - [ ] exe 실행 테스트 (인증 → 풀링 → 출력)
 - [ ] GitHub Actions workflow 추가 (태그 push → exe 빌드 → Release 업로드)
+
+## API 응답 포맷
+
+### GET /api/printer/receipts
+
+```json
+{
+  "receipts": [ ... ],
+  "pollInterval": 5        // (선택) 다음 풀링까지 대기 시간(초)
+}
+```
+
+- `pollInterval`이 있으면 클라이언트는 해당 값을 다음 대기 시간으로 사용
+- `pollInterval`이 없으면 클라이언트의 adaptive 백오프 로직 적용
+- 서버에서 `pollInterval: 5`를 항상 내려주면 백오프 없이 고정 5초 동작
 
 ## API 엔드포인트 요약
 
