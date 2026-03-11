@@ -1,5 +1,6 @@
 import logging
 import os
+from datetime import datetime, timezone
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -13,6 +14,12 @@ _FONT_PATHS = [
 ]
 
 _font_cache = {}
+
+# 색상 (감열 프린터: 흑백이지만 그레이 톤으로 가독성 구분)
+_BLACK = "#000000"
+_GRAY = "#888888"
+_LIGHT_GRAY = "#AAAAAA"
+_RULE_GRAY = "#CCCCCC"
 
 
 def _load_font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
@@ -41,6 +48,21 @@ def format_price(amount: int) -> str:
     return f"{amount:,}원"
 
 
+def _format_date(iso_str: str) -> str:
+    """ISO 날짜를 '2026. 03. 11. 14:30' 형식으로."""
+    if not iso_str:
+        return ""
+    try:
+        if "T" in iso_str:
+            date_part = iso_str[:10]
+            time_part = iso_str[11:16]
+            y, m, d = date_part.split("-")
+            return f"{y}. {m}. {d}. {time_part}"
+        return iso_str
+    except Exception:
+        return iso_str
+
+
 def build_receipt_images(
     receipt: dict,
     printer_dpi: int = 203,
@@ -48,7 +70,7 @@ def build_receipt_images(
     """접수증 이미지를 생성한다.
     dualCopy=True이면 [매장용, 고객용] 2장, False이면 1장 반환.
     """
-    dual_copy = receipt.get("dualCopy", False)
+    dual_copy = receipt.get("dualCopy", True)
 
     if dual_copy:
         return [
@@ -68,132 +90,177 @@ def _build_single(
     width_mm = receipt.get("receiptWidthMm", 72)
     width_px = int(width_mm / 25.4 * printer_dpi)
 
-    # DPI 비례 폰트 크기
+    # DPI 비례 폰트 크기 (프론트엔드 13px 기준 매핑)
     scale = printer_dpi / 203
-    font_brand = _load_font(int(24 * scale), bold=True)
-    font_body = _load_font(int(16 * scale))
-    font_bold = _load_font(int(18 * scale), bold=True)
-    font_small = _load_font(int(14 * scale))
+    font_brand = _load_font(int(20 * scale), bold=True)      # 브랜드명
+    font_body = _load_font(int(13 * scale))                   # 본문
+    font_medium = _load_font(int(13 * scale), bold=True)      # 중간 굵기
+    font_order_num = _load_font(int(16 * scale), bold=True)   # 주문번호
+    font_contact = _load_font(int(15 * scale), bold=True)     # 연락처
+    font_total = _load_font(int(15 * scale), bold=True)       # 총 결제금액
+    font_small = _load_font(int(11 * scale))                  # 작은 텍스트
+    font_item_detail = _load_font(int(12 * scale))            # 상품 옵션
 
     margin = int(16 * scale)
-    line_gap = int(6 * scale)
-    section_gap = int(12 * scale)
+    line_gap = int(4 * scale)
+    section_pad = int(8 * scale)
 
-    # 임시 캔버스 (높이는 넉넉하게)
+    # 임시 캔버스
     canvas_height = int(2000 * scale)
     img = Image.new("RGB", (width_px, canvas_height), "white")
     draw = ImageDraw.Draw(img)
 
     y = margin
-    content_width = width_px - margin * 2
 
-    def draw_center(text, font, y_pos):
+    def text_height(text, font):
         bbox = draw.textbbox((0, 0), text, font=font)
-        tw = bbox[2] - bbox[0]
+        return bbox[3] - bbox[1]
+
+    def text_width(text, font):
+        bbox = draw.textbbox((0, 0), text, font=font)
+        return bbox[2] - bbox[0]
+
+    def draw_center(text, font, y_pos, fill=_BLACK):
+        tw = text_width(text, font)
         x = (width_px - tw) // 2
-        draw.text((x, y_pos), text, fill="black", font=font)
-        return y_pos + bbox[3] - bbox[1] + line_gap
+        draw.text((x, y_pos), text, fill=fill, font=font)
+        return y_pos + text_height(text, font) + line_gap
 
-    def draw_left(text, font, y_pos, x_offset=0):
-        draw.text((margin + x_offset, y_pos), text, fill="black", font=font)
-        bbox = draw.textbbox((0, 0), text, font=font)
-        return y_pos + bbox[3] - bbox[1] + line_gap
+    def draw_lr(left_text, right_text, left_font, right_font, y_pos,
+                left_fill=_BLACK, right_fill=_BLACK):
+        draw.text((margin, y_pos), left_text, fill=left_fill, font=left_font)
+        rw = text_width(right_text, right_font)
+        draw.text((width_px - margin - rw, y_pos), right_text,
+                  fill=right_fill, font=right_font)
+        lh = text_height(left_text, left_font)
+        rh = text_height(right_text, right_font)
+        return y_pos + max(lh, rh) + line_gap
 
-    def draw_lr(left_text, right_text, font, y_pos):
-        draw.text((margin, y_pos), left_text, fill="black", font=font)
-        bbox_r = draw.textbbox((0, 0), right_text, font=font)
-        rw = bbox_r[2] - bbox_r[0]
-        draw.text((width_px - margin - rw, y_pos), right_text, fill="black", font=font)
-        bbox_l = draw.textbbox((0, 0), left_text, font=font)
-        return y_pos + max(bbox_l[3] - bbox_l[1], bbox_r[3] - bbox_r[1]) + line_gap
+    def draw_dashed_line(y_pos):
+        """점선 구분선."""
+        dash_len = int(4 * scale)
+        gap_len = int(3 * scale)
+        x = margin
+        while x < width_px - margin:
+            x_end = min(x + dash_len, width_px - margin)
+            draw.line([(x, y_pos), (x_end, y_pos)], fill=_LIGHT_GRAY, width=1)
+            x = x_end + gap_len
+        return y_pos
 
-    def draw_separator(y_pos):
-        sep_y = y_pos + line_gap // 2
-        draw.line([(margin, sep_y), (width_px - margin, sep_y)], fill="black", width=1)
-        return sep_y + line_gap
+    def draw_thin_line(y_pos):
+        """얇은 실선."""
+        draw.line([(margin, y_pos), (width_px - margin, y_pos)],
+                  fill=_RULE_GRAY, width=1)
+        return y_pos
 
-    # --- 레이아웃 ---
+    # === 헤더: 브랜드명 + 복사 라벨 ===
+    y += section_pad
 
-    # 복사 라벨 (매장용/고객용)
-    if copy_label:
-        y = draw_center(f"[{copy_label}]", font_body, y)
-        y += line_gap
-
-    # 브랜드명
     brand_name = receipt.get("brandName", "")
     if brand_name:
-        y = draw_center(f"★ {brand_name} ★", font_brand, y)
-    y += section_gap
+        y = draw_center(brand_name, font_brand, y)
 
-    # 구분선
-    y = draw_separator(y)
+    if copy_label:
+        y = draw_center(copy_label, font_small, y, fill=_GRAY)
 
-    # 주문 정보
+    y += section_pad
+    y = draw_dashed_line(y)
+    y += section_pad
+
+    # === 주문 정보 ===
     order_number = receipt.get("orderNumber", "")
-    created_at = receipt.get("createdAt", "")
-    # ISO → 보기 좋은 형식
-    if created_at and "T" in created_at:
-        date_part = created_at[:10].replace("-", ".")
-        time_part = created_at[11:16]
-        created_at = f"{date_part} {time_part}"
-
+    created_at = _format_date(receipt.get("createdAt", ""))
     recipient = receipt.get("recipientName", "")
     contact = receipt.get("contact", "")
 
-    info_items = [
-        ("주문번호", order_number),
-        ("일시", created_at),
-        ("수령인", recipient),
-        ("연락처", contact),
-    ]
-    label_width = int(80 * scale)
-    for label, value in info_items:
-        if value:
-            draw.text((margin, y), label, fill="black", font=font_body)
-            draw.text((margin + label_width, y), value, fill="black", font=font_body)
-            bbox = draw.textbbox((0, 0), label, font=font_body)
-            y += bbox[3] - bbox[1] + line_gap
+    if order_number:
+        y = draw_lr("주문번호", order_number, font_body, font_order_num, y,
+                     left_fill=_GRAY)
+        y += int(2 * scale)
+    if created_at:
+        y = draw_lr("일시", created_at, font_body, font_body, y,
+                     left_fill=_GRAY)
+    if recipient:
+        y = draw_lr("수령인", recipient, font_body, font_body, y,
+                     left_fill=_GRAY)
+    if contact:
+        y = draw_lr("연락처", contact, font_body, font_contact, y,
+                     left_fill=_GRAY)
 
-    y += section_gap
-    y = draw_separator(y)
+    y += section_pad
+    y = draw_dashed_line(y)
+    y += section_pad
 
-    # 상품 목록
+    # === 상품 목록 ===
     items = receipt.get("items", [])
     for item in items:
         product_name = item.get("productName", "")
-        y = draw_left(product_name, font_body, y)
+        draw.text((margin, y), product_name, fill=_BLACK, font=font_medium)
+        y += text_height(product_name, font_medium) + line_gap
 
-        option = item.get("optionName", "")
+        option = item.get("optionName", "") or "기본"
         qty = item.get("quantity", 1)
         price = item.get("totalPrice", 0)
-        detail = f"  {option} × {qty}" if option else f"  × {qty}"
-        y = draw_lr(detail, format_price(price), font_small, y)
+        detail = f"{option} × {qty}"
+        y = draw_lr(detail, format_price(price), font_item_detail, font_item_detail, y,
+                     left_fill=_GRAY, right_fill=_GRAY)
+        y += int(4 * scale)
 
-    y += section_gap
-    y = draw_separator(y)
+    y += section_pad
+    y = draw_dashed_line(y)
+    y += section_pad
 
-    # 금액
+    # === 금액 ===
     items_total = receipt.get("itemsTotal", 0)
     shipping = receipt.get("shippingAmount", 0)
     discount = receipt.get("discountAmount", 0)
     total = receipt.get("totalAmount", 0)
 
-    y = draw_lr("상품금액", format_price(items_total), font_body, y)
+    y = draw_lr("상품금액", format_price(items_total), font_body, font_body, y,
+                 left_fill=_GRAY)
     if shipping:
-        y = draw_lr("배송비", format_price(shipping), font_body, y)
+        y = draw_lr("배송비", format_price(shipping), font_body, font_body, y,
+                     left_fill=_GRAY)
     if discount:
-        y = draw_lr("할인", f"-{format_price(discount)}", font_body, y)
-    y = draw_lr("총 결제금액", format_price(total), font_bold, y)
+        y = draw_lr("할인", f"-{format_price(discount)}", font_body, font_body, y,
+                     left_fill=_GRAY)
 
-    y += section_gap
-    y = draw_separator(y)
+    # 총 결제금액 위 실선
+    y += int(4 * scale)
+    y = draw_thin_line(y)
+    y += int(4 * scale)
 
-    # 결제 정보
+    y = draw_lr("총 결제금액", format_price(total), font_total, font_total, y)
+
+    y += section_pad
+    y = draw_dashed_line(y)
+    y += section_pad
+
+    # === 결제 정보 ===
     payment_method = receipt.get("paymentMethod", "")
     payment_status = receipt.get("paymentStatus", "")
     if payment_method or payment_status:
-        payment_text = " / ".join(filter(None, [payment_method, payment_status]))
-        y = draw_left(payment_text, font_body, y)
+        payment_value = " / ".join(filter(None, [payment_method, payment_status]))
+        y = draw_lr("결제", payment_value, font_body, font_body, y,
+                     left_fill=_GRAY)
+        y += section_pad
+        y = draw_dashed_line(y)
+        y += section_pad
+
+    # === 예상 소요시간 (수기 기입란) ===
+    draw.text((margin, y), "예상 소요시간", fill=_GRAY, font=font_small)
+    y += text_height("예상 소요시간", font_small) + int(6 * scale)
+    line_y = y + int(28 * scale)
+    draw_thin_line(line_y)
+    y = line_y + section_pad
+
+    y += section_pad
+    y = draw_dashed_line(y)
+    y += section_pad
+
+    # === 출력 시각 ===
+    now = datetime.now().strftime("%Y. %m. %d. %H:%M")
+    y = draw_center(f"{now} 출력", font_small, y, fill=_LIGHT_GRAY)
 
     y += margin
 
