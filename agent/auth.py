@@ -41,17 +41,13 @@ def authenticate(tenant: str, base_url: str) -> str:
     expires_in = data.get("expiresIn", 300)
 
     # 2. 브라우저 오픈
-    print()
-    print("=" * 50)
-    print("  프린터 인증이 필요합니다")
-    print()
-    print(f"  인증 URL: {verify_url}")
-    print(f"  인증 코드: {user_code}")
-    print()
-    print("  브라우저에서 위 URL을 열고 코드를 입력하세요.")
-    print("  관리자가 승인하면 자동으로 시작됩니다.")
-    print("=" * 50)
-    print()
+    logger.info("=" * 50)
+    logger.info("  프린터 인증이 필요합니다")
+    logger.info("  인증 URL: %s", verify_url)
+    logger.info("  인증 코드: %s", user_code)
+    logger.info("  브라우저에서 위 URL을 열고 코드를 입력하세요.")
+    logger.info("  관리자가 승인하면 자동으로 시작됩니다.")
+    logger.info("=" * 50)
 
     webbrowser.open(verify_url)
 

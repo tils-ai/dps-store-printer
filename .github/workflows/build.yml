@@ -42,7 +42,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Build EXE
-        run: pyinstaller --onefile --name label-printer-watcher --console --hidden-import win32print --hidden-import win32ui --hidden-import win32api --add-data "${{ steps.poppler.outputs.bin }};poppler" main.py
+        run: pyinstaller --onefile --name label-printer-watcher --windowed --hidden-import win32print --hidden-import win32ui --hidden-import win32api --collect-data customtkinter --add-data "${{ steps.poppler.outputs.bin }};poppler" main.py
 
       - name: Upload watcher artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -78,7 +78,7 @@ jobs:
 
       - name: Build EXE
         if: steps.check.outputs.exists == 'true'
-        run: pyinstaller --onefile --name label-printer-agent --console --hidden-import win32print --hidden-import win32ui --hidden-import win32api main.py
+        run: pyinstaller --onefile --name label-printer-agent --windowed --hidden-import win32print --hidden-import win32ui --hidden-import win32api --collect-data customtkinter main.py
 
       - name: Upload agent artifacts
         if: steps.check.outputs.exists == 'true'
