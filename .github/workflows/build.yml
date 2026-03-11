@@ -111,6 +111,11 @@ jobs:
           path: release/agent
         continue-on-error: true
 
+      - name: Rename config files to avoid collision
+        run: |
+          mv release/watcher/config.ini release/watcher/watcher-config.ini || true
+          mv release/agent/config.ini release/agent/agent-config.ini || true
+
       - name: Upload to Release
         uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.3.2
         with:
