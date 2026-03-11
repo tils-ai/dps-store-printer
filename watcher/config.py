@@ -11,10 +11,31 @@ def _base_dir():
 
 
 BASE_DIR = _base_dir()
+INI_PATH = os.path.join(BASE_DIR, "config.ini")
 
-# config.ini 로드 (없으면 기본값 사용)
+_DEFAULT_INI = """\
+[printer]
+; Windows 설정 > 프린터에서 정확한 이름 확인
+name = SLK TS200
+dpi = 203
+; 렌더링 해상도 (높을수록 선명, 기본 300)
+render_dpi = 300
+
+[folder]
+; 비워두면 exe와 같은 폴더 기준으로 자동 생성
+; 경로를 지정하면 해당 폴더를 사용 (예: D:\\LabelPrint\\watch)
+watch =
+done =
+error =
+"""
+
+# config.ini가 없으면 기본값으로 생성
+if not os.path.exists(INI_PATH):
+    with open(INI_PATH, "w", encoding="utf-8") as f:
+        f.write(_DEFAULT_INI)
+
 _ini = configparser.ConfigParser()
-_ini.read(os.path.join(BASE_DIR, "config.ini"), encoding="utf-8")
+_ini.read(INI_PATH, encoding="utf-8")
 
 WATCH_DIR = _ini.get("folder", "watch", fallback="") or os.path.join(BASE_DIR, "watch")
 DONE_DIR = _ini.get("folder", "done", fallback="") or os.path.join(BASE_DIR, "done")
