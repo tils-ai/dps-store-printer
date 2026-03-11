@@ -20,8 +20,11 @@ class PrinterApiClient:
         self.session.headers["X-Client-Version"] = VERSION
         self.base_url = base_url
 
-    def get_pending_receipts(self, limit: int = 10) -> list[dict]:
-        """미출력 접수증 조회. 서버가 PENDING→PRINTING으로 선점."""
+    def get_pending_receipts(self, limit: int = 10) -> tuple[list[dict], int | None]:
+        """미출력 접수증 조회. 서버가 PENDING→PRINTING으로 선점.
+        Returns: (receipts, pollInterval)
+          - pollInterval: 서버 지정 간격(초). 없으면 None → 클라이언트 백오프 사용.
+        """
         resp = self.session.get(
             f"{self.base_url}/api/printer/receipts",
             params={"status": "pending", "limit": limit},
@@ -32,7 +35,8 @@ class PrinterApiClient:
         if resp.status_code == 401:
             raise AuthExpiredError("API 키가 만료되었습니다.")
         resp.raise_for_status()
-        return resp.json()["receipts"]
+        data = resp.json()
+        return data["receipts"], data.get("pollInterval")
 
     def mark_printed(self, receipt_id: str):
         """출력 완료 보고."""

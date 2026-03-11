@@ -278,10 +278,10 @@ class AgentApp(ctk.CTk):
 
         while not self._stop_event.is_set():
             try:
-                receipts = client.get_pending_receipts()
+                receipts, server_interval = client.get_pending_receipts()
                 if not receipts:
                     empty_count += 1
-                    interval = _backoff_interval(empty_count)
+                    interval = server_interval or _backoff_interval(empty_count)
                     if empty_count <= 1:
                         logger.info("대기 중... (새 접수증 없음)")
                     elif empty_count % 10 == 0:
@@ -294,7 +294,8 @@ class AgentApp(ctk.CTk):
                     if self._stop_event.is_set():
                         break
                     process_receipt(client, receipt)
-                self._stop_event.wait(config.POLL_INTERVAL)
+                interval = server_interval or config.POLL_INTERVAL
+                self._stop_event.wait(interval)
 
             except AuthExpiredError:
                 logger.error("API 키가 만료되었습니다. 재인증이 필요합니다.")
