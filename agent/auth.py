@@ -19,7 +19,7 @@ def authenticate(tenant: str, base_url: str) -> str:
     try:
         resp = requests.post(
             f"{base_url}/api/printer/auth/request",
-            json={"tenant": tenant},
+            json={"tenant": tenant, "type": "receipt"},
             timeout=10,
         )
     except requests.ConnectionError:
