@@ -41,9 +41,17 @@ agent/                   # API 풀링 모드 (label-printer-agent.exe)
 ├── printer.py           # Windows 프린터 출력
 └── requirements.txt
 
-docs/                    # 설계 문서
 .github/workflows/       # CI: 태그 push 시 두 exe 빌드 → Release 업로드
 ```
+
+## 설계 문서
+
+> 설계 문서는 **dps-store** 프로젝트에서 통합 관리합니다.
+>
+> - `dps-store/docs/print/20260310-label-printer-watcher-spec.md` — Watcher 설계
+> - `dps-store/docs/print/20260310-label-printer-troubleshooting.md` — 트러블슈팅
+> - `dps-store/docs/print/20260311-label-printer-agent-spec.md` — Agent 설계
+> - `dps-store/docs/print/20260310-printer-client-api.md` — 서버 API 설계
 
 ## 빌드 & 배포
 
