@@ -30,6 +30,10 @@ api_key =
 base_url = https://store.dpl.shop
 ; 풀링 간격 (초, 유휴 시 자동 백오프)
 poll_interval = 5
+
+[gui]
+; system | light | dark
+appearance = system
 """
 
 # config.ini가 없으면 기본값으로 생성
@@ -48,6 +52,26 @@ API_TENANT = _ini.get("api", "tenant", fallback="")
 API_KEY = _ini.get("api", "api_key", fallback="")
 BASE_URL = _ini.get("api", "base_url", fallback="https://store.dpl.shop")
 POLL_INTERVAL = _ini.getint("api", "poll_interval", fallback=5)
+
+
+def get_appearance() -> str:
+    p = configparser.ConfigParser()
+    p.read(INI_PATH, encoding="utf-8")
+    value = p.get("gui", "appearance", fallback="system").strip().lower()
+    return value if value in {"system", "light", "dark"} else "system"
+
+
+def set_appearance(value: str) -> None:
+    value = (value or "system").strip().lower()
+    if value not in {"system", "light", "dark"}:
+        value = "system"
+    p = configparser.ConfigParser()
+    p.read(INI_PATH, encoding="utf-8")
+    if not p.has_section("gui"):
+        p.add_section("gui")
+    p.set("gui", "appearance", value)
+    with open(INI_PATH, "w", encoding="utf-8") as f:
+        p.write(f)
 
 
 def _ensure_api_section():

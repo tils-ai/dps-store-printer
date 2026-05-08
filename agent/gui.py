@@ -13,6 +13,7 @@ if sys.platform == "win32":
 import customtkinter as ctk
 
 import config
+import fonts
 from auth import authenticate
 from api_client import PrinterApiClient, AuthExpiredError, UpgradeRequiredError
 from receipt_builder import build_receipt_images
@@ -20,19 +21,24 @@ from printer import print_image
 
 logger = logging.getLogger(__name__)
 
-# 파스텔 그레이톤 컬러칩
-_BG = "#2C2C2E"
-_FRAME_BG = "#3A3A3C"
-_TEXT = "#E0DDD9"
-_TEXT_MUTED = "#8E8A85"
-_GREEN = "#8BC5A3"
-_CORAL = "#D4897A"
-_BLUE = "#7A9EB8"
-_GRAY = "#5A5856"
-_LOG_BG = "#333335"
-_LOG_TEXT = "#D0CCC8"
-_FONT = "Malgun Gothic"
-_LOG_FONT = "Malgun Gothic"
+# Pretendard 등록 (멱등)
+fonts.register()
+
+# 컬러 (light, dark) — CTk가 appearance_mode에 따라 자동 선택
+_BG = ("#F5F5F7", "#2C2C2E")
+_FRAME_BG = ("#FFFFFF", "#3A3A3C")
+_TEXT = ("#1F1F1F", "#E0DDD9")
+_TEXT_MUTED = ("#6E6E73", "#8E8A85")
+_GREEN = ("#34A853", "#8BC5A3")
+_CORAL = ("#E14B3D", "#D4897A")
+_BLUE = ("#3B6EA5", "#7A9EB8")
+_GRAY = ("#C7C7CC", "#5A5856")
+_LOG_BG = ("#F2F2F7", "#333335")
+_LOG_TEXT = ("#1F1F1F", "#D0CCC8")
+_FONT = fonts.family()
+_LOG_FONT = fonts.family()
+_APPEARANCE_LABELS = {"system": "시스템", "light": "라이트", "dark": "다크"}
+_APPEARANCE_REVERSE = {v: k for k, v in _APPEARANCE_LABELS.items()}
 
 
 class QueueHandler(logging.Handler):
@@ -82,7 +88,7 @@ class AgentApp(ctk.CTk):
         self.minsize(500, 400)
         self.configure(fg_color=_BG)
 
-        ctk.set_appearance_mode("dark")
+        ctk.set_appearance_mode(config.get_appearance().capitalize())
 
         self._log_queue = queue.Queue()
         self._stop_event = threading.Event()
@@ -127,6 +133,17 @@ class AgentApp(ctk.CTk):
             font=(_FONT, 14, "bold"), text_color=_TEXT,
         )
         self._status_label.grid(row=0, column=1, sticky="w")
+
+        # 테마 토글
+        self._theme_menu = ctk.CTkOptionMenu(
+            status_frame,
+            values=list(_APPEARANCE_LABELS.values()),
+            width=90,
+            font=(_FONT, 11),
+            command=self._on_theme_change,
+        )
+        self._theme_menu.set(_APPEARANCE_LABELS.get(config.get_appearance(), "시스템"))
+        self._theme_menu.grid(row=0, column=2, padx=(8, 12), pady=8)
 
         # --- 설정 ---
         info_frame = ctk.CTkFrame(self, fg_color=_FRAME_BG, corner_radius=8)
@@ -359,6 +376,11 @@ class AgentApp(ctk.CTk):
             self._log_text.configure(state="normal")
             self._log_text.delete("1.0", f"{len(lines) - self.MAX_LOG_LINES}.0")
             self._log_text.configure(state="disabled")
+
+    def _on_theme_change(self, label):
+        appearance = _APPEARANCE_REVERSE.get(label, "system")
+        ctk.set_appearance_mode(appearance.capitalize())
+        config.set_appearance(appearance)
 
     def _on_closing(self):
         self._stop_event.set()
