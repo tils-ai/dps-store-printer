@@ -3,7 +3,7 @@
 라벨 프린터 섹션:
 - 페어링 (Agent API)
 - 프린터 (name / DPI)
-- 폴더 (watch/done/error)
+- 폴더 (incoming/done/error)
 - 정보
 """
 
@@ -251,7 +251,7 @@ class SettingsPanel(ctk.CTkFrame):
     # ── 폴더 ────────────────────────────────
     def _build_folders(self, parent) -> None:
         parent.grid_columnconfigure(1, weight=1)
-        self._watch_dir = self._entry(parent, "감시(incoming)", config.WATCH_DIR, 0)
+        self._watch_dir = self._entry(parent, "감시(incoming)", config.INCOMING_DIR, 0)
         self._done_dir = self._entry(parent, "완료(done)", config.DONE_DIR, 1)
         self._error_dir = self._entry(parent, "에러(error)", config.ERROR_DIR, 2)
 
@@ -293,9 +293,9 @@ class SettingsPanel(ctk.CTkFrame):
             _set("printer", "name", self._printer_name.get())
             _set("printer", "dpi", self._printer_dpi.get())
             _set("printer", "render_dpi", self._render_dpi.get())
-            _set("folder", "watch", self._watch_dir.get())
-            _set("folder", "done", self._done_dir.get())
-            _set("folder", "error", self._error_dir.get())
+            _set("paths", "incoming", self._watch_dir.get())
+            _set("paths", "done", self._done_dir.get())
+            _set("paths", "error", self._error_dir.get())
 
             with open(config.INI_PATH, "w", encoding="utf-8") as f:
                 p.write(f)

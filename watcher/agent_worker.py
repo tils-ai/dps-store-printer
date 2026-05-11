@@ -65,6 +65,10 @@ class AgentWorker:
         self._stop_event = threading.Event()
         self._thread: Optional[threading.Thread] = None
         self._running = False
+        # 표준 콜백 셋 (g/l/m 통일) — 모두 Optional, 미지정 시 무시
+        self.on_started: Optional[Callable[[], None]] = None
+        self.on_stopped: Optional[Callable[[], None]] = None
+        self.on_downloaded: Optional[Callable[[str], None]] = None
         self.on_done: Optional[Callable[[str], None]] = None
         self.on_error: Optional[Callable[[str], None]] = None
         self.on_auth_expired: Optional[Callable[[], None]] = None
@@ -93,6 +97,7 @@ class AgentWorker:
             self._thread.join(timeout=5)
             self._thread = None
         self._running = False
+        _fire(self.on_stopped)
 
     def _auth_and_start(self) -> None:
         try:
@@ -109,6 +114,7 @@ class AgentWorker:
         self._thread = threading.Thread(target=self._polling_loop, daemon=True)
         self._thread.start()
         self._running = True
+        _fire(self.on_started)
 
     def _polling_loop(self) -> None:
         client = PrinterApiClient(config.BASE_URL, config.API_KEY)
@@ -130,14 +136,16 @@ class AgentWorker:
                 for receipt in receipts:
                     if self._stop_event.is_set():
                         break
+                    # l-module은 즉시 출력 — on_downloaded와 on_done 시점이 사실상 동일
+                    receipt_name = receipt.get("orderNumber", receipt.get("id", ""))
+                    _fire(self.on_downloaded, receipt_name)
                     _process_receipt(client, receipt, on_done=self.on_done, on_error=self.on_error)
                 interval = server_interval or config.POLL_INTERVAL
                 self._stop_event.wait(interval)
             except AuthExpiredError:
                 logger.error("API 키 만료 — 재인증 필요")
                 config.save_api_key("")
-                if self.on_auth_expired:
-                    self.on_auth_expired()
+                _fire(self.on_auth_expired)
                 break
             except UpgradeRequiredError as e:
                 logger.error("클라이언트 업데이트 필요: %s", e)
@@ -149,3 +157,13 @@ class AgentWorker:
                 logger.exception("풀링 예외 — 10초 후 재시도")
                 self._stop_event.wait(10)
         self._running = False
+
+
+def _fire(cb, *args):
+    """콜백을 안전하게 호출 — 미지정이거나 예외면 무시."""
+    if cb is None:
+        return
+    try:
+        cb(*args)
+    except Exception:
+        logger.exception("콜백 예외 — 무시하고 계속")

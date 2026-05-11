@@ -21,12 +21,6 @@ dpi = 203
 ; 렌더링 해상도 (높을수록 선명, 기본 300)
 render_dpi = 300
 
-[folder]
-; spec §11.5 통일 — 비워두면 exe 옆 incoming/ 등으로 자동 생성
-watch =
-done =
-error =
-
 [api]
 ; dps-store API 풀링 (v3.0에서 watcher+agent 통합)
 tenant =
@@ -66,7 +60,7 @@ def _path_fallback(paths_key: str, legacy_key: str, default_sub: str) -> str:
     return val or os.path.join(BASE_DIR, default_sub)
 
 
-WATCH_DIR = _path_fallback("incoming", "watch", "incoming")
+INCOMING_DIR = _path_fallback("incoming", "watch", "incoming")
 PROCESSING_DIR = _ini.get("paths", "processing", fallback="").strip() or os.path.join(BASE_DIR, "processing")
 DONE_DIR = _path_fallback("done", "done", "done")
 ORIGINALS_DIR = _ini.get("paths", "originals", fallback="").strip() or os.path.join(DONE_DIR, "originals")
@@ -75,7 +69,7 @@ LOG_FILE = _ini.get("log", "file", fallback="").strip() or os.path.join(BASE_DIR
 LOG_LEVEL = _ini.get("log", "level", fallback="INFO").strip().upper()
 PRINTER_NAME = _ini.get("printer", "name", fallback="SLK TS200")
 
-for _d in (WATCH_DIR, PROCESSING_DIR, DONE_DIR, ORIGINALS_DIR, ERROR_DIR, os.path.dirname(LOG_FILE)):
+for _d in (INCOMING_DIR, PROCESSING_DIR, DONE_DIR, ORIGINALS_DIR, ERROR_DIR, os.path.dirname(LOG_FILE)):
     if _d:
         os.makedirs(_d, exist_ok=True)
 

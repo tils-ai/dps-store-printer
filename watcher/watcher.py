@@ -97,9 +97,9 @@ class LabelFileHandler(FileSystemEventHandler):
 
 def start_watching():
     """감시 폴더를 관찰하고 Observer를 반환한다."""
-    os.makedirs(config.WATCH_DIR, exist_ok=True)
+    os.makedirs(config.INCOMING_DIR, exist_ok=True)
     observer = Observer()
-    observer.schedule(LabelFileHandler(), config.WATCH_DIR, recursive=False)
+    observer.schedule(LabelFileHandler(), config.INCOMING_DIR, recursive=False)
     observer.start()
-    logger.info("폴더 감시 시작: %s", config.WATCH_DIR)
+    logger.info("폴더 감시 시작: %s", config.INCOMING_DIR)
     return observer
