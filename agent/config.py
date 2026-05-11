@@ -3,8 +3,17 @@ import os
 import sys
 
 
+APP_NAME = "dps-store-printer"
+
+
 def _base_dir():
-    """exe 실행 시 exe가 있는 폴더, 스크립트 실행 시 스크립트 폴더 반환."""
+    """장비 GUI spec §11.5: 운영 데이터는 %LOCALAPPDATA%\\<app>\\ 하위 — watcher와 agent 동일 위치."""
+    if sys.platform == "win32":
+        local = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
+        if local:
+            base = os.path.join(local, APP_NAME)
+            os.makedirs(base, exist_ok=True)
+            return base
     if getattr(sys, "frozen", False):
         return os.path.dirname(sys.executable)
     return os.path.dirname(os.path.abspath(__file__))

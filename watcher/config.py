@@ -3,8 +3,17 @@ import os
 import sys
 
 
+APP_NAME = "dps-store-printer"
+
+
 def _base_dir():
-    """exe 실행 시 exe가 있는 폴더, 스크립트 실행 시 스크립트 폴더 반환."""
+    """장비 GUI spec §11.5: 운영 데이터는 %LOCALAPPDATA%\\<app>\\ 하위."""
+    if sys.platform == "win32":
+        local = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
+        if local:
+            base = os.path.join(local, APP_NAME)
+            os.makedirs(base, exist_ok=True)
+            return base
     if getattr(sys, "frozen", False):
         return os.path.dirname(sys.executable)
     return os.path.dirname(os.path.abspath(__file__))
@@ -22,11 +31,22 @@ dpi = 203
 render_dpi = 300
 
 [folder]
-; 비워두면 exe와 같은 폴더 기준으로 자동 생성
-; 경로를 지정하면 해당 폴더를 사용 (예: D:\\LabelPrint\\watch)
+; spec §11.5 통일 — 비워두면 %LOCALAPPDATA%\dps-store-printer\incoming 등으로 자동 생성
 watch =
 done =
 error =
+
+[paths]
+; spec §11.5 통일 키 (비워두면 자동)
+incoming =
+processing =
+done =
+originals =
+error =
+
+[log]
+file =
+level = INFO
 
 [gui]
 ; system | light | dark
@@ -41,10 +61,25 @@ if not os.path.exists(INI_PATH):
 _ini = configparser.ConfigParser()
 _ini.read(INI_PATH, encoding="utf-8")
 
-WATCH_DIR = _ini.get("folder", "watch", fallback="") or os.path.join(BASE_DIR, "watch")
-DONE_DIR = _ini.get("folder", "done", fallback="") or os.path.join(BASE_DIR, "done")
-ERROR_DIR = _ini.get("folder", "error", fallback="") or os.path.join(BASE_DIR, "error")
+def _path_fallback(paths_key: str, legacy_key: str, default_sub: str) -> str:
+    val = _ini.get("paths", paths_key, fallback="").strip()
+    if not val:
+        val = _ini.get("folder", legacy_key, fallback="").strip()
+    return val or os.path.join(BASE_DIR, default_sub)
+
+
+WATCH_DIR = _path_fallback("incoming", "watch", "incoming")
+PROCESSING_DIR = _ini.get("paths", "processing", fallback="").strip() or os.path.join(BASE_DIR, "processing")
+DONE_DIR = _path_fallback("done", "done", "done")
+ORIGINALS_DIR = _ini.get("paths", "originals", fallback="").strip() or os.path.join(DONE_DIR, "originals")
+ERROR_DIR = _path_fallback("error", "error", "error")
+LOG_FILE = _ini.get("log", "file", fallback="").strip() or os.path.join(BASE_DIR, "logs", "watcher.log")
+LOG_LEVEL = _ini.get("log", "level", fallback="INFO").strip().upper()
 PRINTER_NAME = _ini.get("printer", "name", fallback="SLK TS200")
+
+for _d in (WATCH_DIR, PROCESSING_DIR, DONE_DIR, ORIGINALS_DIR, ERROR_DIR, os.path.dirname(LOG_FILE)):
+    if _d:
+        os.makedirs(_d, exist_ok=True)
 
 
 def get_appearance() -> str:
