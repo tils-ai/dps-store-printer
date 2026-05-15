@@ -20,6 +20,9 @@ name = SLK TS200
 dpi = 203
 ; 렌더링 해상도 (높을수록 선명, 기본 300)
 render_dpi = 300
+; 실물 프린터 없이 preview/ 폴더에 PNG로 저장 (테스트용)
+; 환경변수 LABEL_PRINTER_DRYRUN=1 로도 일시적으로 활성화 가능
+dryrun = false
 
 [api]
 ; dps-store API 풀링 (v3.0에서 watcher+agent 통합)
@@ -128,6 +131,14 @@ LABEL_WIDTH_MM = 72
 PRINTER_DPI = _ini.getint("printer", "dpi", fallback=203)
 RENDER_DPI = _ini.getint("printer", "render_dpi", fallback=300)
 LABEL_WIDTH_PX = int(LABEL_WIDTH_MM / 25.4 * PRINTER_DPI)  # ~576px
+
+# DRYRUN: 실물 프린터 없이 PNG로 저장 (테스트/지사 출장 시 사용)
+# 환경변수가 우선, 없으면 config.ini 값
+PRINTER_DRYRUN = (
+    os.environ.get("LABEL_PRINTER_DRYRUN", "").strip().lower() in {"1", "true", "yes", "on"}
+    or _ini.getboolean("printer", "dryrun", fallback=False)
+)
+PREVIEW_DIR = os.path.join(BASE_DIR, "preview")
 
 # poppler 경로 (pdf2image에서 사용)
 # 우선순위: config.ini > exe 번들 > PATH

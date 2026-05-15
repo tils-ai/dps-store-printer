@@ -1,7 +1,7 @@
 import logging
-import win32print
-import win32ui
-from PIL import Image, ImageWin
+import os
+import time
+from PIL import Image
 
 import config
 
@@ -9,7 +9,22 @@ logger = logging.getLogger(__name__)
 
 
 def print_image(image: Image.Image, printer_name: str = None):
-    """이미지를 Windows 프린터로 출력한다."""
+    """이미지를 Windows 프린터로 출력한다.
+
+    config.PRINTER_DRYRUN이 켜져있으면 실제 인쇄 대신 preview/ 폴더에 PNG로 저장한다
+    (실물 라벨기 없이 출력 결과 검증용).
+    """
+    if config.PRINTER_DRYRUN:
+        os.makedirs(config.PREVIEW_DIR, exist_ok=True)
+        path = os.path.join(config.PREVIEW_DIR, f"{int(time.time() * 1000)}.png")
+        image.save(path)
+        logger.info("[DRYRUN] %s 저장 (실제 인쇄 생략)", path)
+        return
+
+    # win32는 Windows 전용 — DRYRUN/타 OS에서 import만 시도해도 실패하므로 lazy import
+    import win32ui
+    from PIL import ImageWin
+
     printer_name = printer_name or config.PRINTER_NAME
 
     hdc = win32ui.CreateDC()
