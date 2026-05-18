@@ -244,9 +244,55 @@ class SettingsPanel(ctk.CTkFrame):
     # ── 프린터 ──────────────────────────────
     def _build_printer(self, parent) -> None:
         parent.grid_columnconfigure(1, weight=1)
-        self._printer_name = self._entry(parent, "프린터명", config.PRINTER_NAME, 0)
+
+        ctk.CTkLabel(parent, text="프린터명", font=ctk.CTkFont(family=_font_family(), size=11)).grid(
+            row=0, column=0, sticky="w", pady=2
+        )
+
+        printer_row = ctk.CTkFrame(parent, fg_color="transparent")
+        printer_row.grid(row=0, column=1, sticky="ew", padx=(8, 0), pady=2)
+        printer_row.grid_columnconfigure(0, weight=1)
+
+        self._printer_name = ctk.CTkComboBox(
+            printer_row,
+            values=[config.PRINTER_NAME] if config.PRINTER_NAME else [""],
+            font=ctk.CTkFont(family=_font_family(), size=11),
+        )
+        self._printer_name.grid(row=0, column=0, sticky="ew")
+        if config.PRINTER_NAME:
+            self._printer_name.set(config.PRINTER_NAME)
+
+        ctk.CTkButton(
+            printer_row,
+            text="새로고침",
+            width=70,
+            font=ctk.CTkFont(family=_font_family(), size=10),
+            command=self._refresh_printers,
+        ).grid(row=0, column=1, padx=(4, 0))
+
         self._printer_dpi = self._entry(parent, "프린터 DPI", str(config.PRINTER_DPI), 1)
         self._render_dpi = self._entry(parent, "렌더링 DPI", str(config.RENDER_DPI), 2)
+
+        # 초기 로드 (Windows에서만 실제 목록 채워짐)
+        self._refresh_printers()
+
+    def _refresh_printers(self) -> None:
+        """설치된 프린터 목록을 다시 읽어 Combobox에 반영한다.
+
+        - 현재 입력값(또는 config 값)은 목록에 없어도 보존
+        - Windows 외 환경에서는 win32print 사용 불가 → 현재 값만 유지
+        """
+        from printer import list_printers
+
+        printers = list_printers()
+        current = self._printer_name.get().strip()
+        values = list(printers)
+        if current and current not in values:
+            values.insert(0, current)
+        if not values:
+            values = [""]
+        self._printer_name.configure(values=values)
+        self._printer_name.set(current or values[0])
 
     # ── 폴더 ────────────────────────────────
     def _build_folders(self, parent) -> None:
